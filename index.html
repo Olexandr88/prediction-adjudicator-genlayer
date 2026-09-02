@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prediction Adjudicator — GenLayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper: #ece3cd;
+  --paper-dark: #e2d7ba;
+  --ink: #201c16;
+  --ink-soft: #4a4235;
+  --rule: #b7a97f;
+  --stamp-red: #9b2d20;
+  --stamp-green: #35573a;
+  --stamp-amber: #a8752b;
+  --folder-tab: #d9cca3;
+  --shadow: rgba(32,28,22,0.18);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse at 15% -10%, rgba(255,255,255,0.35), transparent 55%),
+    var(--paper);
+  color:var(--ink);
+  font-family:'Source Serif 4', Georgia, serif;
+  min-height:100vh;
+  padding:32px 16px 80px;
+}
+.sheet{
+  max-width:880px;
+  margin:0 auto;
+  position:relative;
+}
+/* Folder tab */
+.tab{
+  display:inline-block;
+  background:var(--folder-tab);
+  border:1px solid var(--rule);
+  border-bottom:none;
+  padding:10px 22px 8px;
+  border-radius:6px 6px 0 0;
+  font-family:'Special Elite', monospace;
+  font-size:12px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  transform:rotate(-0.4deg);
+}
+.folder{
+  background:var(--paper-dark);
+  border:1px solid var(--rule);
+  border-radius:0 10px 10px 10px;
+  box-shadow:0 18px 40px var(--shadow);
+  padding:36px 40px 44px;
+  position:relative;
+  overflow:hidden;
+}
+.folder::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(32,28,22,0.02) 0px, rgba(32,28,22,0.02) 1px, transparent 1px, transparent 3px);
+  pointer-events:none;
+}
+header.case-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  border-bottom:2px solid var(--ink);
+  padding-bottom:14px;
+  margin-bottom:8px;
+}
+h1{
+  font-family:'Special Elite', monospace;
+  font-size:26px;
+  letter-spacing:0.02em;
+  margin:0;
+  line-height:1.15;
+}
+h1 span{display:block; font-size:12px; letter-spacing:0.14em; color:var(--ink-soft); margin-top:6px; text-transform:uppercase;}
+.case-id{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12px;
+  text-align:right;
+  color:var(--ink-soft);
+  line-height:1.6;
+}
+.case-id b{color:var(--ink); font-weight:500;}
+.case-id a{color:var(--stamp-green); text-decoration:none; border-bottom:1px dotted var(--stamp-green);}
+.lede{
+  font-size:15.5px;
+  line-height:1.6;
+  color:var(--ink-soft);
+  max-width:60ch;
+  margin:18px 0 30px;
+}
+/* Intake form */
+.intake{
+  border:1px solid var(--rule);
+  background:rgba(255,255,255,0.35);
+  border-radius:4px;
+  padding:26px 28px 22px;
+  margin-bottom:34px;
+}
+.intake h2{
+  font-family:'Special Elite', monospace;
+  font-size:13px;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  margin:0 0 18px;
+  color:var(--ink-soft);
+}
+.field{margin-bottom:16px;}
+.field label{
+  display:block;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+}
+.field textarea, .field input{
+  width:100%;
+  font-family:'Source Serif 4', Georgia, serif;
+  font-size:15px;
+  color:var(--ink);
+  background:var(--paper);
+  border:1px solid var(--rule);
+  border-radius:3px;
+  padding:10px 12px;
+  resize:vertical;
+}
+.field textarea{min-height:52px;}
+.field textarea:focus, .field input:focus{
+  outline:2px solid var(--stamp-green);
+  outline-offset:1px;
+}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media (max-width:640px){ .row2{grid-template-columns:1fr;} }
+.btn{
+  font-family:'Special Elite', monospace;
+  font-size:13px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  border:1.5px solid var(--ink);
+  background:transparent;
+  color:var(--ink);
+  padding:10px 20px;
+  border-radius:3px;
+  cursor:pointer;
+  transition:transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.btn:hover{background:var(--ink); color:var(--paper);}
+.btn:active{transform:scale(0.97);}
+.btn:disabled{opacity:0.45; cursor:not-allowed;}
+.btn.primary{
+  border-color:var(--stamp-green);
+  color:var(--stamp-green);
+}
+.btn.primary:hover{background:var(--stamp-green); color:var(--paper-dark);}
+.btn-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px;}
+.status-line{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12px;
+  color:var(--ink-soft);
+  min-height:16px;
+}
+.status-line.err{color:var(--stamp-red);}
+.status-line.ok{color:var(--stamp-green);}
+/* Account strip */
+.account-strip{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11.5px;
+  color:var(--ink-soft);
+  border-top:1px dashed var(--rule);
+  margin-top:16px;
+  padding-top:14px;
+}
+.account-strip a{color:var(--stamp-amber); text-decoration:none; border-bottom:1px dotted var(--stamp-amber);}
+/* Docket */
+.docket h2{
+  font-family:'Special Elite', monospace;
+  font-size:15px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  margin:0 0 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+}
+.docket h2 small{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  text-transform:none;
+  color:var(--ink-soft);
+  font-weight:400;
+}
+.case-card{
+  position:relative;
+  background:rgba(255,255,255,0.4);
+  border:1px solid var(--rule);
+  border-radius:4px;
+  padding:18px 20px 16px;
+  margin-bottom:16px;
+  overflow:hidden;
+}
+.case-card .num{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+}
+.case-card .claim-text{
+  font-size:15.5px;
+  line-height:1.5;
+  margin:0 0 10px;
+}
+.case-card .meta{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.case-card .meta a{color:var(--ink-soft);}
+/* Lifecycle status badge — deliberately separate from the verdict stamp.
+   The stamp (top-right) shows the verdict (true/false/undetermined);
+   this badge shows where the claim sits in the resolve() state machine
+   (pending -> resolved -> finalized | disputed). */
+.status-badge{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:10.5px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  padding:2px 9px;
+  border-radius:10px;
+  border:1px solid currentColor;
+  line-height:1.6;
+}
+.status-badge.pending{color:var(--ink-soft); border-style:dashed;}
+.status-badge.resolved{color:var(--stamp-amber);}
+.status-badge.finalized{color:var(--stamp-green);}
+.status-badge.disputed{color:var(--stamp-red);}
+.case-card .reasoning{
+  font-size:13.5px;
+  color:var(--ink-soft);
+  font-style:italic;
+  border-left:2px solid var(--rule);
+  padding-left:10px;
+  margin:8px 0 4px;
+}
+.case-card .actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.stake-box{
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px dashed var(--rule);
+}
+.stake-pool{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  margin-bottom:8px;
+}
+.stake-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.stake-row input{
+  width:110px;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12.5px;
+  padding:6px 8px;
+  border:1px solid var(--rule);
+  border-radius:3px;
+  background:var(--paper);
+  color:var(--ink);
+}
+.btn.stake-true{border-color:var(--stamp-green); color:var(--stamp-green); font-size:11px; padding:6px 12px;}
+.btn.stake-true:hover{background:var(--stamp-green); color:var(--paper-dark);}
+.btn.stake-false{border-color:var(--stamp-red); color:var(--stamp-red); font-size:11px; padding:6px 12px;}
+.btn.stake-false:hover{background:var(--stamp-red); color:var(--paper-dark);}
+.btn.claim-btn{border-color:var(--stamp-amber); color:var(--stamp-amber); font-size:11px; padding:6px 12px;}
+.btn.claim-btn:hover{background:var(--stamp-amber); color:var(--paper-dark);}
+.my-position{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:10.5px;
+  color:var(--ink-soft);
+  margin-top:6px;
+}
+/* Stamp — verdict only. Never derived from lifecycle status. */
+.stamp{
+  position:absolute;
+  top:12px;
+  right:18px;
+  font-family:'Special Elite', monospace;
+  font-size:20px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  padding:6px 14px;
+  border:3px solid currentColor;
+  border-radius:6px;
+  transform:rotate(-8deg) scale(0);
+  opacity:0;
+  animation:stamp-in 0.45s cubic-bezier(.2,1.6,.4,1) forwards;
+  animation-delay:0.05s;
+  mix-blend-mode:multiply;
+}
+@keyframes stamp-in{
+  0%{transform:rotate(-8deg) scale(2.6); opacity:0;}
+  60%{opacity:1;}
+  100%{transform:rotate(-8deg) scale(1); opacity:0.88;}
+}
+.stamp.true{color:var(--stamp-green);}
+.stamp.false{color:var(--stamp-red);}
+.stamp.undetermined{color:var(--stamp-amber); font-size:14px;}
+.empty{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12.5px;
+  color:var(--ink-soft);
+  padding:20px 0;
+  text-align:center;
+  border:1px dashed var(--rule);
+  border-radius:4px;
+}
+footer.foot{
+  max-width:880px;
+  margin:22px auto 0;
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px;
+  color:var(--ink-soft);
+  text-align:center;
+}
+footer.foot a{color:var(--stamp-green); text-decoration:none;}
+@media (prefers-reduced-motion: reduce){
+  .stamp{animation:none; transform:rotate(-8deg) scale(1); opacity:0.88;}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="tab">Docket No. GL-CA-01</div>
+  <div class="folder">
+    <header class="case-header">
+      <h1>Prediction Adjudicator<span>AI-adjudicated prediction market — powered by GenLayer</span></h1>
+      <div class="case-id">
+        Contract<br>
+        <b id="contractShort">0xf79a…9fd4</b><br>
+        <a id="explorerLink" href="#" target="_blank" rel="noopener">view on explorer →</a>
+      </div>
+    </header>
+
+    <p class="lede">File a claim, point it at a public source, and let a panel of independent AI validators read the evidence and reach consensus. A claim only becomes final once two resolutions in a row agree — no single model decides. While a claim is open, stake GEN on which way it will resolve; once it's finalized, winners split the pool.</p>
+
+    <section class="intake">
+      <h2>New Filing</h2>
+      <div class="field">
+        <label for="claimText">Allegation</label>
+        <textarea id="claimText" placeholder="e.g. The GenLayer testnet processed over 1 million transactions in August 2026"></textarea>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="sourceUrl">Exhibit (source URL)</label>
+          <input id="sourceUrl" type="text" placeholder="https://…" />
+        </div>
+        <div class="field">
+          <label for="criteria">Standard of proof</label>
+          <input id="criteria" type="text" placeholder="What counts as true / false on that page" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="fileBtn">File Claim</button>
+        <span class="status-line" id="fileStatus"></span>
+      </div>
+      <div class="account-strip">
+        <span id="acctLine">No case-filing account loaded.</span>
+        <span>
+          <button class="btn" id="genAcctBtn" style="font-size:11px; padding:6px 12px;">Generate test account</button>
+          <a id="faucetLink" href="https://studio.genlayer.com/contracts" target="_blank" rel="noopener">fund via Studio faucet →</a>
+        </span>
+      </div>
+    </section>
+
+    <section class="docket">
+      <h2>Docket <small id="docketCount">loading…</small></h2>
+      <div id="docketList">
+        <div class="empty">Reading the registry…</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="refreshBtn">Refresh docket</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<footer class="foot">
+  Testnet demo. Claims and verdicts are recorded on GenLayer Studionet, not a real court. · <a href="https://docs.genlayer.com" target="_blank" rel="noopener">docs.genlayer.com</a>
+</footer>
+
+<script type="module">
+import { createClient, createAccount } from "https://esm.sh/genlayer-js@latest?bundle";
+
+const CONTRACT = "0x5b2427afFaE5Ed2a05E0481b8ee6BE9472C88eFE";
+const STUDIO_CHAIN = {
+  id: 61999,
+  name: "studionet",
+  rpcUrls: { default: { http: ["https://studio.genlayer.com/api"] } },
+};
+
+document.getElementById("contractShort").textContent =
+  CONTRACT.slice(0, 6) + "…" + CONTRACT.slice(-4);
+document.getElementById("explorerLink").href =
+  "https://explorer-studio.genlayer.com/address/" + CONTRACT;
+
+let readClient;
+let account = null;
+let writeClient = null;
+
+function setStatus(msg, kind) {
+  const el = document.getElementById("fileStatus");
+  el.textContent = msg || "";
+  el.className = "status-line" + (kind ? " " + kind : "");
+}
+
+// --- Verdict stamp (true / false / undetermined). Only ever reads c.verdict. ---
+function stampClass(verdict) {
+  if (verdict === "true") return "stamp true";
+  if (verdict === "false") return "stamp false";
+  if (verdict === "undetermined") return "stamp undetermined";
+  return "";
+}
+function stampLabel(verdict) {
+  if (verdict === "true") return "TRUE";
+  if (verdict === "false") return "FALSE";
+  if (verdict === "undetermined") return "UNDET.";
+  return "";
+}
+
+// --- Lifecycle status badge (pending / resolved / finalized / disputed). Only ever reads c.status. ---
+function statusBadgeClass(status) {
+  if (status === "finalized") return "status-badge finalized";
+  if (status === "disputed") return "status-badge disputed";
+  if (status === "resolved") return "status-badge resolved";
+  return "status-badge pending";
+}
+function statusLabel(status) {
+  if (status === "finalized") return "FINALIZED";
+  if (status === "disputed") return "DISPUTED";
+  if (status === "resolved") return "RESOLVED";
+  return "PENDING";
+}
+
+async function initReadClient() {
+  try {
+    readClient = createClient({ chain: STUDIO_CHAIN });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadDocket() {
+  const list = document.getElementById("docketList");
+  const count = document.getElementById("docketCount");
+  list.innerHTML = '<div class="empty">Reading the registry…</div>';
+  try {
+    const total = await readClient.readContract({
+      address: CONTRACT,
+      functionName: "total_claims",
+      args: [],
+    });
+    const n = Number(total);
+    count.textContent = n + (n === 1 ? " filing" : " filings");
+
+    if (n === 0) {
+      list.innerHTML = '<div class="empty">No claims filed yet. Be the first.</div>';
+      return;
+    }
+
+    const cards = [];
+    for (let i = n - 1; i >= 0; i--) {
+      try {
+        const c = await readClient.readContract({
+          address: CONTRACT,
+          functionName: "get_claim",
+          args: [i],
+        });
+        cards.push(renderCase(i, c));
+      } catch (e) {
+        console.warn("could not read claim", i, e);
+      }
+    }
+    list.innerHTML = cards.join("") || '<div class="empty">Docket is empty.</div>';
+    attachResolveHandlers();
+  } catch (e) {
+    console.error(e);
+    list.innerHTML =
+      '<div class="empty">Could not reach the registry right now. The contract is at ' +
+      CONTRACT +
+      " — check the explorer link above instead.</div>";
+    count.textContent = "";
+  }
+}
+
+function genFmt(weiStr) {
+  // GEN uses 18 decimals, same as ETH/wei. Keep it short for card display.
+  try {
+    const wei = BigInt(weiStr ?? 0);
+    const whole = wei / 1000000000000000000n;
+    const frac = wei % 1000000000000000000n;
+    if (frac === 0n) return whole.toString();
+    const fracStr = frac.toString().padStart(18, "0").slice(0, 4).replace(/0+$/, "");
+    return fracStr ? `${whole}.${fracStr}` : whole.toString();
+  } catch {
+    return "0";
+  }
+}
+
+function renderCase(id, c) {
+  const status = c.status || "pending";
+  const verdict = c.verdict || "";
+  const showStamp = verdict !== "";
+  const resolutions = c.resolutions ?? 0;
+  const confirmations = c.confirmations ?? 0;
+  const poolTrue = c.pool_true ?? 0;
+  const poolFalse = c.pool_false ?? 0;
+  const canStake = status === "pending" || status === "resolved";
+  const canClaim = status === "finalized" || status === "disputed";
+
+  return `
+    <div class="case-card">
+      ${showStamp ? `<div class="${stampClass(verdict)}">${stampLabel(verdict)}</div>` : ""}
+      <div class="num">Case #${String(id).padStart(3, "0")}</div>
+      <p class="claim-text">${escapeHtml(c.text || "")}</p>
+      <div class="meta">
+        <span class="${statusBadgeClass(status)}">${statusLabel(status)}</span>
+        <span>Exhibit: <a href="${escapeAttr(c.source_url || "")}" target="_blank" rel="noopener">${escapeHtml(shorten(c.source_url || "", 40))}</a></span>
+        <span>Resolutions: ${resolutions} · Confirmations: ${confirmations}</span>
+      </div>
+      ${c.reasoning ? `<p class="reasoning">"${escapeHtml(c.reasoning)}"</p>` : ""}
+      <div class="actions">
+        <button class="btn resolve-btn" data-id="${id}" style="font-size:11px; padding:6px 12px;">
+          ${status === "pending" ? "Resolve" : "Resolve again"}
+        </button>
+      </div>
+      <div class="stake-box">
+        <div class="stake-pool">Pool — TRUE: ${genFmt(poolTrue)} GEN · FALSE: ${genFmt(poolFalse)} GEN</div>
+        ${
+          canStake
+            ? `
+          <div class="stake-row">
+            <input type="text" class="stake-amount" data-id="${id}" placeholder="GEN amount" />
+            <button class="btn stake-true" data-id="${id}">Stake TRUE</button>
+            <button class="btn stake-false" data-id="${id}">Stake FALSE</button>
+          </div>
+        `
+            : canClaim
+            ? `
+          <div class="stake-row">
+            <button class="btn claim-btn" data-id="${id}">Claim winnings</button>
+          </div>
+        `
+            : ""
+        }
+        <div class="my-position" id="position-${id}"></div>
+      </div>
+    </div>
+  `;
+}
+
+function shorten(s, n) {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[m]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function attachResolveHandlers() {
+  document.querySelectorAll(".resolve-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.dataset.id);
+      if (!writeClient) {
+        setStatus("Generate a test account first.", "err");
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Resolving…";
+      try {
+        const hash = await writeClient.writeContract({
+          account,
+          address: CONTRACT,
+          functionName: "resolve",
+          args: [id],
+          value: 0,
+        });
+        setStatus("Filed. Waiting for validator consensus on case #" + id + "…", "ok");
+        await writeClient.waitForTransactionReceipt({ hash, status: "FINALIZED" });
+        setStatus("Case #" + id + " resolved.", "ok");
+        await loadDocket();
+      } catch (e) {
+        console.error(e);
+        setStatus("Resolve failed: " + (e?.message || e), "err");
+        btn.disabled = false;
+        btn.textContent = "Resolve";
+      }
+    });
+  });
+
+  document.querySelectorAll(".stake-true, .stake-false").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.dataset.id);
+      const onTrue = btn.classList.contains("stake-true");
+      const input = document.querySelector(`.stake-amount[data-id="${id}"]`);
+      const amountGen = parseFloat(input?.value || "0");
+      if (!writeClient) {
+        setStatus("Generate a test account first.", "err");
+        return;
+      }
+      if (!amountGen || amountGen <= 0) {
+        setStatus("Enter a GEN amount to stake.", "err");
+        return;
+      }
+      const valueWei = BigInt(Math.round(amountGen * 1e6)) * 1000000000000n; // GEN -> wei, avoiding float precision issues past 1e6
+      btn.disabled = true;
+      try {
+        const hash = await writeClient.writeContract({
+          account,
+          address: CONTRACT,
+          functionName: onTrue ? "stake_true" : "stake_false",
+          args: [id],
+          value: valueWei,
+        });
+        setStatus("Staking on case #" + id + "…", "ok");
+        await writeClient.waitForTransactionReceipt({ hash, status: "FINALIZED" });
+        setStatus("Stake placed on case #" + id + ".", "ok");
+        if (input) input.value = "";
+        await loadDocket();
+      } catch (e) {
+        console.error(e);
+        setStatus("Stake failed: " + (e?.message || e), "err");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll(".claim-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.dataset.id);
+      if (!writeClient) {
+        setStatus("Generate a test account first.", "err");
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Claiming…";
+      try {
+        const hash = await writeClient.writeContract({
+          account,
+          address: CONTRACT,
+          functionName: "claim_winnings",
+          args: [id],
+          value: 0,
+        });
+        setStatus("Claiming payout for case #" + id + "…", "ok");
+        await writeClient.waitForTransactionReceipt({ hash, status: "FINALIZED" });
+        setStatus("Payout claimed for case #" + id + ".", "ok");
+        await loadDocket();
+      } catch (e) {
+        console.error(e);
+        setStatus("Claim failed: " + (e?.message || e), "err");
+        btn.disabled = false;
+        btn.textContent = "Claim winnings";
+      }
+    });
+  });
+
+  if (writeClient && account) {
+    loadMyPositions();
+  }
+}
+
+async function loadMyPositions() {
+  document.querySelectorAll(".my-position").forEach(async (el) => {
+    const id = Number(el.id.replace("position-", ""));
+    try {
+      const pos = await readClient.readContract({
+        address: CONTRACT,
+        functionName: "get_position",
+        args: [id, account.address],
+      });
+      const trueAmt = genFmt(pos.true_amount ?? 0);
+      const falseAmt = genFmt(pos.false_amount ?? 0);
+      if ((pos.true_amount ?? 0) == 0 && (pos.false_amount ?? 0) == 0) {
+        el.textContent = "";
+        return;
+      }
+      el.textContent =
+        `Your stake — TRUE: ${trueAmt} GEN · FALSE: ${falseAmt} GEN` +
+        (pos.claimed ? " · claimed" : "");
+    } catch (e) {
+      // no position for this claim yet — leave blank
+    }
+  });
+}
+
+document.getElementById("genAcctBtn").addEventListener("click", () => {
+  account = createAccount();
+  writeClient = createClient({ chain: STUDIO_CHAIN, account });
+  document.getElementById("acctLine").innerHTML =
+    "Signing as <b>" + account.address.slice(0, 8) + "…" + account.address.slice(-4) + "</b>";
+  document.getElementById("faucetLink").href =
+    "https://studio.genlayer.com/contracts";
+  setStatus("Test account ready. Fund it via the Studio faucet, then file, resolve, or stake.", "ok");
+  loadMyPositions();
+});
+
+document.getElementById("fileBtn").addEventListener("click", async () => {
+  const text = document.getElementById("claimText").value.trim();
+  const source_url = document.getElementById("sourceUrl").value.trim();
+  const criteria = document.getElementById("criteria").value.trim();
+  if (!text || !source_url || !criteria) {
+    setStatus("Fill in the allegation, exhibit URL, and standard of proof.", "err");
+    return;
+  }
+  if (!writeClient) {
+    setStatus("Generate a test account first.", "err");
+    return;
+  }
+  const btn = document.getElementById("fileBtn");
+  btn.disabled = true;
+  setStatus("Filing claim…", "");
+  try {
+    const hash = await writeClient.writeContract({
+      account,
+      address: CONTRACT,
+      functionName: "submit_claim",
+      args: [text, source_url, criteria],
+      value: 0,
+    });
+    await writeClient.waitForTransactionReceipt({ hash, status: "FINALIZED" });
+    setStatus("Claim filed and added to the docket.", "ok");
+    document.getElementById("claimText").value = "";
+    document.getElementById("sourceUrl").value = "";
+    document.getElementById("criteria").value = "";
+    await loadDocket();
+  } catch (e) {
+    console.error(e);
+    setStatus("Filing failed: " + (e?.message || e), "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("refreshBtn").addEventListener("click", loadDocket);
+
+initReadClient().then(loadDocket);
+</script>
+</body>
+</html>
