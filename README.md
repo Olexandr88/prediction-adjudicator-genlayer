@@ -9,6 +9,10 @@ once independent AI validators reach consensus on a verdict.
 
 `0x5b2427afFaE5Ed2a05E0481b8ee6BE9472C88eFE` (GenLayer Studionet)
 
+## Live demo
+
+https://curious-cocada-f4bb9e.netlify.app
+
 ## What it does
 
 Anyone can call `submit_claim(text, source_url, criteria)` to register a
