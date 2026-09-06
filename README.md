@@ -11,7 +11,7 @@ once independent AI validators reach consensus on a verdict.
 
 ## Live demo
 
-https://curious-cocada-f4bb9e.netlify.app
+[https://brilliant-sprinkles-e68ec3.netlify.app]
 
 ## What it does
 
