@@ -7,7 +7,7 @@ once independent AI validators reach consensus on a verdict.
 
 ## Deployed contract
 
-`0x5b2427afFaE5Ed2a05E0481b8ee6BE9472C88eFE` (GenLayer Studionet)
+`0x9a17174aEAbd4Fc600abCA8A34f11be0ae7125aC` (GenLayer Studionet)
 
 ## Live demo
 
@@ -42,14 +42,21 @@ Each claim tracks two things separately:
 A single resolution only ever produces a provisional `resolved` claim. It
 takes **two consecutive resolutions agreeing on the same verdict** for a
 claim to become `finalized`. If a later resolution disagrees instead, the
-claim moves to `disputed`. Once `finalized`, a claim is frozen —
-`resolve()` will revert rather than let a settled verdict move again.
+claim moves to `disputed`. **Both `finalized` and `disputed` are
+terminal** — `resolve()` reverts for a claim in either state, so a
+verdict people have already been paid out (or refunded) against can
+never move again. See [TESTS.md](./TESTS.md) for the exact call
+sequences that verify this, including the case where a refund has
+already been paid out before a further `resolve()` is attempted.
 
 ### Staking
 
-While a claim is `pending` or `resolved` (i.e. still open), anyone can
-call the payable functions `stake_true(claim_id)` or
-`stake_false(claim_id)`, sending GEN to back their prediction.
+Staking is open **only while a claim is `pending`** — the moment the
+first resolution comes in, `stake_true`/`stake_false` revert, since a
+staker who waits for a resolution before staking would have an unfair
+information advantage over everyone who staked earlier. Send GEN to
+`stake_true(claim_id)` or `stake_false(claim_id)` to back your
+prediction while the claim is still open.
 
 Once a claim is `finalized`, stakers call `claim_winnings(claim_id)`:
 
