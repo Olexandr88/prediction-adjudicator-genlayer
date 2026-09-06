@@ -410,7 +410,7 @@ footer.foot a{color:var(--stamp-green); text-decoration:none;}
 <script type="module">
 import { createClient, createAccount } from "https://esm.sh/genlayer-js@latest?bundle";
 
-const CONTRACT = "0x5b2427afFaE5Ed2a05E0481b8ee6BE9472C88eFE";
+const CONTRACT = "0x9a17174aEAbd4Fc600abCA8A34f11be0ae7125aC";
 const STUDIO_CHAIN = {
   id: 61999,
   name: "studionet",
@@ -533,8 +533,9 @@ function renderCase(id, c) {
   const confirmations = c.confirmations ?? 0;
   const poolTrue = c.pool_true ?? 0;
   const poolFalse = c.pool_false ?? 0;
-  const canStake = status === "pending" || status === "resolved";
+  const canStake = status === "pending";
   const canClaim = status === "finalized" || status === "disputed";
+  const canResolve = status === "pending" || status === "resolved";
 
   return `
     <div class="case-card">
@@ -547,11 +548,17 @@ function renderCase(id, c) {
         <span>Resolutions: ${resolutions} · Confirmations: ${confirmations}</span>
       </div>
       ${c.reasoning ? `<p class="reasoning">"${escapeHtml(c.reasoning)}"</p>` : ""}
+      ${
+        canResolve
+          ? `
       <div class="actions">
         <button class="btn resolve-btn" data-id="${id}" style="font-size:11px; padding:6px 12px;">
           ${status === "pending" ? "Resolve" : "Resolve again"}
         </button>
       </div>
+      `
+          : ""
+      }
       <div class="stake-box">
         <div class="stake-pool">Pool — TRUE: ${genFmt(poolTrue)} GEN · FALSE: ${genFmt(poolFalse)} GEN</div>
         ${
