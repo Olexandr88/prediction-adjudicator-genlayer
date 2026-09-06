@@ -93,8 +93,17 @@ class PredictionAdjudicator(gl.Contract):
         # Once a claim is finalized, its verdict is what any stakers are
         # paid out against. It must never move again — otherwise a verdict
         # could flip after payouts have already started.
-        if claim.status == "finalized":
-            raise gl.vm.UserError("Claim already finalized")
+        #
+        # A disputed claim is likewise terminal: claim_winnings() treats
+        # "disputed" as a full-refund state, so once any staker has been
+        # refunded, the claim's outcome must never change again either —
+        # otherwise it could later reach "finalized" with a real winner
+        # after refunds already went out to everyone.
+        if claim.status in ("finalized", "disputed"):
+            raise gl.vm.UserError(
+                "Claim already settled — finalized and disputed claims "
+                "are both terminal and can never be resolved again"
+            )
 
         source_url = claim.source_url
         criteria = claim.criteria
@@ -188,8 +197,13 @@ This result must be perfectly parsable by a JSON parser without errors.
             raise gl.vm.UserError("Send some GEN to stake")
 
         claim = self.claims[claim_id]
-        if claim.status in ("finalized", "disputed"):
-            raise gl.vm.UserError("This claim is no longer open for staking")
+        if claim.status != "pending":
+            raise gl.vm.UserError(
+                "Staking is only open while a claim is pending — "
+                "once the first resolution comes in, the outcome is no "
+                "longer an open question and further stakes would be "
+                "placed with an unfair information advantage."
+            )
 
         sender = gl.message.sender_address
         if claim_id not in self.positions:
