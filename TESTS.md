@@ -1,10 +1,17 @@
 # Lifecycle Tests
 
-These are manual verification walkthroughs you can run in GenLayer
-Studio (or via `genlayer-js` scripts) against a deployed
-`PredictionAdjudicator` contract. Each one demonstrates a safety
-guarantee added after steward review: staking is restricted to
-`pending` claims, and `disputed` claims are terminal.
+The authoritative tests live in [`test_lifecycle.py`](./test_lifecycle.py) —
+real, executable pytest tests using GenLayer's official testing suite
+(`genlayer-test` / `gltest`) in Direct Mode, with `mock_web`/`mock_llm`
+standing in for the nondeterministic web+LLM calls inside `resolve()`.
+
+```
+pip install genlayer-test
+gltest test_lifecycle.py -v
+```
+
+This document is a narrative walkthrough of what those tests exercise,
+for readers who want the reasoning without running the suite.
 
 ## Test 1 — A `resolved` claim rejects new stakes
 
