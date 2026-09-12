@@ -11,7 +11,7 @@ once independent AI validators reach consensus on a verdict.
 
 ## Live demo
 
-[https://brilliant-sprinkles-e68ec3.netlify.app]
+https://curious-cocada-f4bb9e.netlify.app
 
 ## What it does
 
@@ -84,7 +84,16 @@ other prediction markets.
 
 ## Files
 
-- `prediction_adjudicator.py` — the contract (Python, GenLayer SDK).
+- `contracts/prediction_adjudicator.py` — the contract (Python, GenLayer SDK).
+- `tests/test_lifecycle.py` — executable pytest tests (GenLayer's official
+  `genlayer-test` / `gltest` Direct Mode) that exercise and assert the
+  pending-only staking restriction and the terminal-disputed guarantee
+  against the actual contract code, not just a manual description of
+  them. Run with `pip install genlayer-test && gltest tests/ -v`.
+- `pyproject.toml` — points `gltest` at the `contracts/` directory so the
+  test suite can find and deploy the contract.
+- `TESTS.md` — narrative walkthrough companion to the executable tests
+  above, for readers who want the reasoning without running the suite.
 - `index.html` — a dependency-free frontend (`genlayer-js` only, no
   build step) for filing claims, resolving them, staking, and claiming
   winnings.
