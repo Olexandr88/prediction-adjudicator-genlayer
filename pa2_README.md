@@ -11,7 +11,7 @@ once independent AI validators reach consensus on a verdict.
 
 ## Live demo
 
-https://curious-cocada-f4bb9e.netlify.app
+https://brilliant-sprinkles-e68ec3.netlify.app
 
 ## What it does
 
@@ -45,55 +45,57 @@ claim to become `finalized`. If a later resolution disagrees instead, the
 claim moves to `disputed`. **Both `finalized` and `disputed` are
 terminal** — `resolve()` reverts for a claim in either state, so a
 verdict people have already been paid out (or refunded) against can
-never move again. See [TESTS.md](./TESTS.md) for the exact call
-sequences that verify this, including the case where a refund has
-already been paid out before a further `resolve()` is attempted.
+never move again.
 
 ### Staking
 
 Staking is open **only while a claim is `pending`** — the moment the
 first resolution comes in, `stake_true`/`stake_false` revert, since a
 staker who waits for a resolution before staking would have an unfair
-information advantage over everyone who staked earlier. Send GEN to
-`stake_true(claim_id)` or `stake_false(claim_id)` to back your
-prediction while the claim is still open.
+information advantage over everyone who staked earlier.
 
-Once a claim is `finalized`, stakers call `claim_winnings(claim_id)`:
+### Recovery paths for staked GEN
 
-- If the verdict is `true` or `false`, everyone who staked on the winning
-  side splits the entire pool (both sides combined), proportionally to
-  their own stake. Losers get nothing.
-- If the verdict is `undetermined`, or the claim ended up `disputed`
-  instead of finalized, there's no reliable winner — every staker gets
-  their own stake back in full.
+Two safety valves make sure pooled GEN can always be recovered, not just
+in the happy path:
 
-`get_claim(claim_id)` returns the claim's text, source, criteria, status,
-verdict, reasoning, resolution/confirmation counts, and both staking
-pools. `get_position(claim_id, staker)` returns any address's stake and
-whether they've already claimed.
+- **A claim nobody ever resolves.** If a claim is still `pending` or
+  `resolved` seven days (`RECLAIM_AFTER`) after it was submitted, any
+  staker can call `reclaim_stake(claim_id)` and withdraw their own stake
+  in full. Without this, GEN staked on a claim that simply never gets
+  enough `resolve()` calls would be locked forever. `reclaim_stake()`
+  reverts on claims that already reached `finalized`/`disputed` — those
+  have their own payout path via `claim_winnings()`.
+- **A claim that finalizes on a side nobody staked.** If the winning
+  verdict's pool is empty (e.g. the claim finalizes `true` but every
+  staker backed `false`), there is no ratio to split the pot by.
+  `claim_winnings()` detects this and refunds every staker their own
+  stake instead of performing a division by zero.
 
-## Why this is useful beyond a demo
+Otherwise, once a claim is `finalized`, stakers call
+`claim_winnings(claim_id)`:
 
-The pattern here — a nondeterministic `leader_fn` (web read + LLM
-judgment), a custom `validator_fn` that defines what "agreement" means
-for the use case, and a lifecycle that only finalizes after repeated
-agreement — is directly reusable for any GenLayer contract that needs to
-turn real-world, ambiguous information into an on-chain, trustworthy
-outcome: dispute resolution, insurance triggers, content moderation, or
-other prediction markets.
+- If the claim finalized with a `true`/`false` verdict that people
+  actually staked on, everyone on the winning side splits the **entire
+  pool** (both sides) proportionally to their stake. Losers get nothing.
+- If the claim finalized with verdict `undetermined`, or moved to
+  `disputed` instead, everyone gets their own stake back in full.
+
+`get_claim` returns `pool_true`, `pool_false` and `submitted_at` along
+with the lifecycle fields, and `get_position(claim_id, staker)` returns
+any given address's stake and whether they've already claimed.
 
 ## Files
 
 - `contracts/prediction_adjudicator.py` — the contract (Python, GenLayer SDK).
-- `tests/test_lifecycle.py` — executable pytest tests (GenLayer's official
-  `genlayer-test` / `gltest` Direct Mode) that exercise and assert the
-  pending-only staking restriction and the terminal-disputed guarantee
-  against the actual contract code, not just a manual description of
-  them. Run with `pip install genlayer-test && gltest tests/ -v`.
+- `tests/direct/test_lifecycle.py` — executable pytest tests (GenLayer's
+  official `genlayer-test` / `gltest` Direct Mode) covering the
+  pending-only staking restriction, the terminal-disputed guarantee, the
+  zero-pool refund path, and `reclaim_stake()`'s guards. Run with
+  `pip install genlayer-test && gltest tests/ -v`.
 - `pyproject.toml` — points `gltest` at the `contracts/` directory so the
   test suite can find and deploy the contract.
-- `TESTS.md` — narrative walkthrough companion to the executable tests
-  above, for readers who want the reasoning without running the suite.
+- `TESTS.md` — narrative walkthrough companion to the executable tests.
 - `index.html` — a dependency-free frontend (`genlayer-js` only, no
   build step) for filing claims, resolving them, staking, and claiming
   winnings.
