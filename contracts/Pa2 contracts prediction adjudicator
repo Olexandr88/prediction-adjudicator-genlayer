@@ -2,7 +2,15 @@
 
 from genlayer import *
 from dataclasses import dataclass
+import datetime
 import typing
+
+# How long a claim can sit without reaching a terminal state before its
+# stakers are allowed to walk away with their own money instead of it
+# being stuck forever. This is deliberately generous — it's a safety
+# valve for claims nobody ever gets around to resolving, not a normal
+# path.
+RECLAIM_AFTER = datetime.timedelta(days=7)
 
 # Used to send GEN back to a staker's EOA. Sending to an address on the
 # GenLayer Chain layer (EOA or EVM contract) is an *external* message and
@@ -31,6 +39,7 @@ class Claim:
     confirmations: u32  # consecutive matching resolutions in a row
     pool_true: u256  # total GEN staked on verdict == "true"
     pool_false: u256  # total GEN staked on verdict == "false"
+    submitted_at: datetime.datetime  # for the reclaim-after-timeout safety valve
 
 
 @allow_storage
@@ -51,6 +60,12 @@ class PredictionAdjudicator(gl.Contract):
     Principle check. While a claim is still open, anyone can stake GEN on
     which way it will resolve; once a claim is finalized (two consecutive
     matching resolutions), winners split the pool and claim their payout.
+
+    Two safety valves protect staked GEN beyond the basic lifecycle:
+    if nobody ever resolves a claim, stakers can reclaim their own money
+    after a fixed timeout rather than have it stuck forever; and if a
+    claim finalizes on a side nobody staked on, stakers are refunded
+    instead of the contract dividing by zero.
     """
 
     claims: TreeMap[u32, Claim]
@@ -80,6 +95,7 @@ class PredictionAdjudicator(gl.Contract):
             confirmations=u32(0),
             pool_true=u256(0),
             pool_false=u256(0),
+            submitted_at=datetime.datetime.now(),
         )
         self.next_id = u32(self.next_id + 1)
         return claim_id
@@ -234,9 +250,13 @@ This result must be perfectly parsable by a JSON parser without errors.
         - status == "finalized" and verdict in ("true", "false"): winners
           split the full pool (pool_true + pool_false) proportionally to
           their stake on the winning side. Losers get nothing.
+          If the winning side has zero total stake (nobody backed the
+          side that ended up correct), there is no valid ratio to split
+          by — everyone is refunded their own stake instead, rather than
+          the contract dividing by zero.
         - status == "finalized" and verdict == "undetermined", or
-          status == "disputed": no reliable winner, so every staker gets
-          their own stake back.
+          status == "disputed" — no reliable winner, so every staker gets
+          their own stake back in full.
         - Otherwise (still pending/resolved): reverts — payouts only
           happen once a claim has stopped moving.
         """
@@ -257,12 +277,15 @@ This result must be perfectly parsable by a JSON parser without errors.
             total_pool = u256(claim.pool_true + claim.pool_false)
             if claim.verdict == "true":
                 if claim.pool_true == u256(0):
-                    payout = u256(0)
+                    # Nobody staked on the side that won — no ratio to
+                    # split by. Refund everyone's own stake instead of
+                    # dividing by zero.
+                    payout = u256(pos.true_amount + pos.false_amount)
                 else:
                     payout = u256((pos.true_amount * total_pool) // claim.pool_true)
             elif claim.verdict == "false":
                 if claim.pool_false == u256(0):
-                    payout = u256(0)
+                    payout = u256(pos.true_amount + pos.false_amount)
                 else:
                     payout = u256((pos.false_amount * total_pool) // claim.pool_false)
             else:  # "undetermined" — no side wins, refund everyone
@@ -272,6 +295,55 @@ This result must be perfectly parsable by a JSON parser without errors.
         else:
             raise gl.vm.UserError("Claim is not finalized or disputed yet")
 
+        pos.claimed = True
+        claim_positions[sender] = pos
+        self.positions[claim_id] = claim_positions
+
+        if payout > u256(0):
+            _EOA(sender).emit_transfer(value=payout)
+
+        return payout
+
+    @gl.public.write
+    def reclaim_stake(self, claim_id: u32) -> u256:
+        """
+        Recovery path for a claim nobody ever finished resolving. If a
+        claim is still "pending" or "resolved" (never reached a terminal
+        state) after RECLAIM_AFTER has elapsed since it was submitted,
+        any staker can reclaim their own stake in full — the pooled GEN
+        is never permanently locked just because no one called resolve()
+        enough times to reach a verdict.
+
+        Reverts if the claim is already finalized or disputed (use
+        claim_winnings() instead — those states already have their own
+        payout/refund path) or if the deadline hasn't passed yet.
+        """
+        if claim_id not in self.claims:
+            raise gl.vm.UserError("Unknown claim id")
+        claim = self.claims[claim_id]
+
+        if claim.status in ("finalized", "disputed"):
+            raise gl.vm.UserError(
+                "Claim already reached a terminal state — use "
+                "claim_winnings() instead"
+            )
+
+        if datetime.datetime.now() - claim.submitted_at < RECLAIM_AFTER:
+            raise gl.vm.UserError(
+                "This claim's reclaim deadline hasn't passed yet — give "
+                "resolve() more time, or wait out the timeout"
+            )
+
+        sender = gl.message.sender_address
+        if claim_id not in self.positions or sender not in self.positions[claim_id]:
+            raise gl.vm.UserError("No stake found for this claim")
+        claim_positions = self.positions[claim_id]
+        pos = claim_positions[sender]
+
+        if pos.claimed:
+            raise gl.vm.UserError("Already claimed")
+
+        payout = u256(pos.true_amount + pos.false_amount)
         pos.claimed = True
         claim_positions[sender] = pos
         self.positions[claim_id] = claim_positions
@@ -301,6 +373,7 @@ This result must be perfectly parsable by a JSON parser without errors.
             "confirmations": c.confirmations,
             "pool_true": c.pool_true,
             "pool_false": c.pool_false,
+            "submitted_at": c.submitted_at,
         }
 
     @gl.public.view
