@@ -7,11 +7,11 @@ once independent AI validators reach consensus on a verdict.
 
 ## Deployed contract
 
-`0x9a17174aEAbd4Fc600abCA8A34f11be0ae7125aC` (GenLayer Studionet)
+`0x9C54F704c3F8687124EE75E48f17A92E3d3481b4` (GenLayer Studionet)
 
 ## Live demo
 
-https://brilliant-sprinkles-e68ec3.netlify.app
+https://frabjous-centaur-60094f.netlify.app
 
 ## What it does
 
